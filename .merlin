@@ -1,3 +1,4 @@
 S main
 S histogram
+S color
 PKG parmap

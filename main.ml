@@ -4,20 +4,12 @@
 (*#load "graphics.cma";;*)
 open Graphics
 open Printf
+open Histogram
+open Color
 
-let cumulative_histogram speed_matrix it =
-  let h = Array.make (it + 1) 0 in
-  for y = 0 to (Array.length speed_matrix) - 1 do
-    for x = 0 to (Array.length speed_matrix.(y)) - 1 do
-      let s = speed_matrix.(y).(x) in
-      if s >= 0 then h.(s) <- h.(s) + 1;
-    done;
-  done;
-  let ch = Array.make (it + 1) 0 in
-  for i = 1 to it do
-    ch.(i) <- ch.(i - 1) + h.(i)
-  done;
-  ch
+let log = open_out "log"
+let foi = float_of_int
+let iof = int_of_float
 
 let (+%) (xr, xi) (yr, yi) =
   xr +. yr, xi +. yi
@@ -44,7 +36,7 @@ let is_bounded it c =
 let pixel_color it c =
   match is_bounded it c with
   | -1 -> white
-  | x -> white - (white) / (it / (it -x))
+  | x -> black - (white) / (it / (it -x))
   
 let ft_height x_def y_def width =
   width *. (float_of_int y_def) /. (float_of_int x_def)
@@ -81,12 +73,14 @@ let draw_mandelbrot_set_BW x_def y_def (x_center, y_center) width it =
   done
   
 let draw_mandelbrot_set_BW_multicore x_def y_def (x_center, y_center) width it =
+  let log = open_out "log" in
   let pixel_color_BW it c =
   match is_bounded it c with
   | -1 -> white
   | x -> black
   in
-  printf "draw mandelbrot %d %d (%F, %F) %F %d" x_def y_def x_center y_center width it;
+  printf "draw_mandelbrot %d %d (%F, %F) %F %d;;" x_def y_def x_center y_center width it;
+  fprintf log "draw_mandelbrot %d %d (%F, %F) %F %d;;" x_def y_def x_center y_center width it;
   print_newline ();
   let height = ft_height x_def y_def width in
   let x_corner = x_center -. (width /. 2.) in
@@ -115,7 +109,8 @@ let draw_mandelbrot_set_BW_multicore x_def y_def (x_center, y_center) width it =
 
 let draw_mandelbrot_set_multicore x_def y_def (x_center, y_center) width it =
 
-  printf "draw mandelbrot %d %d (%F, %F) %F %d" x_def y_def x_center y_center width it;
+  printf "draw_mandelbrot %d %d (%F, %F) %F %d;;" x_def y_def x_center y_center width it;
+  fprintf log "draw_mandelbrot %d %d (%F, %F) %F %d;;" x_def y_def x_center y_center width it;
   print_newline ();
   let height = ft_height x_def y_def width in
   let x_corner = x_center -. (width /. 2.) in
@@ -134,14 +129,16 @@ let draw_mandelbrot_set_multicore x_def y_def (x_center, y_center) width it =
     y_complex := !y_complex -. y_pas;
     x_complex := x_corner;
   done;
+  printf "done\n";
 
   let speed_matrix = Parmap.array_parmap (Array.map (is_bounded it)) complex_matrix in
   let ch = cumulative_histogram speed_matrix it in
   let maj = ch.(Array.length ch - 1) + 1 in
+
   let pixel_color s =
     match s with
-    | -1 -> white
-    | x -> white - (maj / s)
+    | -1 -> black
+    | x -> let coeff = ((foi ch.(s)) /. (foi maj)) in  hsl_mean yellow black coeff
   in
   let color_matrix = Parmap.array_parmap (Array.map pixel_color) speed_matrix in
   let img = make_image color_matrix in
