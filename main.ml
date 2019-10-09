@@ -1,7 +1,8 @@
-(*#require "parmap";;
+(*
+#require "parmap";;
 #load "parmap.cma";;
- *)
-(*#load "graphics.cma";;*)
+#load "graphics.cma";;
+*)
 open Graphics
 open Printf
 open Histogram
@@ -77,7 +78,7 @@ let draw_mandelbrot_set_BW_multicore x_def y_def (x_center, y_center) width it =
   let pixel_color_BW it c =
   match is_bounded it c with
   | -1 -> white
-  | x -> black
+  | _ -> black
   in
   printf "draw_mandelbrot %d %d (%F, %F) %F %d;;" x_def y_def x_center y_center width it;
   fprintf log "draw_mandelbrot %d %d (%F, %F) %F %d;;" x_def y_def x_center y_center width it;
@@ -107,7 +108,7 @@ let draw_mandelbrot_set_BW_multicore x_def y_def (x_center, y_center) width it =
   (*
   printf "complex_matrix : %d\n" (Array.length complex_matrix);*)
 
-let draw_mandelbrot_set_multicore x_def y_def (x_center, y_center) width it =
+let draw_mandelbrot_set_multicore x_def y_def (x_center, y_center) width it color_array =
 
   printf "draw_mandelbrot %d %d (%F, %F) %F %d;;" x_def y_def x_center y_center width it;
   fprintf log "draw_mandelbrot %d %d (%F, %F) %F %d;;" x_def y_def x_center y_center width it;
@@ -129,21 +130,22 @@ let draw_mandelbrot_set_multicore x_def y_def (x_center, y_center) width it =
     y_complex := !y_complex -. y_pas;
     x_complex := x_corner;
   done;
-  printf "done\n";
-
   let speed_matrix = Parmap.array_parmap (Array.map (is_bounded it)) complex_matrix in
   let ch = cumulative_histogram speed_matrix it in
   let maj = ch.(Array.length ch - 1) + 1 in
-
+  let ncolor = Array.length color_array - 1 in
   let pixel_color s =
     match s with
-    | -1 -> black
-    | x -> let coeff = ((foi ch.(s)) /. (foi maj)) in  hsl_mean yellow black coeff
+    | -1 -> white
+    | _ -> let coeff = ((foi ch.(s)) /. (foi maj)) in
+           let c1 = (foi ncolor *. coeff *. coeff) in
+           let coeff_c1 = c1 -. (floor c1) in
+           rgb_mean   color_array.(iof (ceil c1)) color_array.(iof (floor c1)) coeff_c1
   in
   let color_matrix = Parmap.array_parmap (Array.map pixel_color) speed_matrix in
   let img = make_image color_matrix in
-  draw_image img 0 0
-
+  draw_image img 0 0;
+  printf "done\n"
 
 let x_def = 1920 
 let y_def = 1080
@@ -153,9 +155,10 @@ open_graph (String.concat "" [" "; (string_of_int x_def); "x"; (string_of_int y_
 let center = ref (0., 0.)
 let ncenter = ref (0., 0.)
 let width = ref 4. 
-let it = ref 100 
+let it = ref 100
+let color_array = [|black; 0xff00ff; yellow|]
 ;;
-draw_mandelbrot_set_multicore x_def y_def !center !width !it;
+draw_mandelbrot_set_multicore x_def y_def !center !width !it color_array;
 let b = ref true in
 while !b do
   let s = wait_next_event [Key_pressed; Button_down] in
@@ -164,7 +167,7 @@ while !b do
     if s.key = '-' then width := !width *. 2.;
     if s.key = 'u' then (
       center := !ncenter;
-      draw_mandelbrot_set_multicore x_def y_def !center !width !it);
+      draw_mandelbrot_set_multicore x_def y_def !center !width !it color_array);
     if s.key = 'Q' then b := false;
     if s.key = '.' || s.key = '>' then it := !it + 100;
     if s.key = ',' || s.key = '<' then it := !it - 100;

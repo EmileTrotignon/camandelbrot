@@ -90,6 +90,9 @@ let hsl_of_int c =
 let float_mean f1 f2 coeff =
   let coeff' = 1. -. coeff in
   (f1 *. coeff +. f2 *. coeff')
+
+let int_mean i1 i2 coeff =
+  int_of_float (float_mean (float_of_int i1) (float_of_int i2) coeff)
   
 let hsl_mean c1 c2 coeff =
   let c1hsl = hsl_of_int c1 in
@@ -102,3 +105,22 @@ let hsl_mean c1 c2 coeff =
   in
   (*print_hsl rhsl;*)
   int_of_hsl rhsl
+
+let hsl_mean_reverse c1 c2 coeff =
+  let c1hsl = hsl_of_int c1 in
+  let c2hsl = hsl_of_int c2 in
+  (*print_hsl c1hsl;
+  print_hsl c2hsl;*)
+  let rhsl = {h = mod_float (float_mean (c1hsl.h +. 1.) c2hsl.h coeff) 1.;
+              s = float_mean c1hsl.s c2hsl.s coeff;
+              l = float_mean c1hsl.l c2hsl.l coeff}
+  in
+  (*print_hsl rhsl;*)
+  int_of_hsl rhsl
+
+let rgb_mean c1 c2 coeff =
+  let c1' = rgb_of_int c1 in
+  let c2' = rgb_of_int c2 in
+  int_of_rgb {r = (int_mean c1'.r c2'.r coeff);
+              g = (int_mean c1'.g c2'.g coeff);
+              b = (int_mean c1'.b c2'.b coeff)}
